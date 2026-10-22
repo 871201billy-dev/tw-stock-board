@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>台股盤</title>
+  <meta name="description" content="台股加權指數、櫃買指數、自選股與全市場行情">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23e5484d'/><path d='M6 22l7-8 5 5 8-10' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>台股盤</h1>
+      <span id="status" class="pill">載入中…</span>
+    </div>
+    <div class="meta">
+      <span id="updated">—</span>
+      <button id="refresh" type="button" title="重新整理">↻</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="indices">
+      <article class="index-card" id="idx-tse">
+        <div class="idx-head"><h2>加權指數</h2><span class="idx-time"></span></div>
+        <div class="idx-price"><span class="big">—</span><span class="chg"></span></div>
+        <svg class="spark" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <dl class="ohl"></dl>
+      </article>
+      <article class="index-card" id="idx-otc">
+        <div class="idx-head"><h2>櫃買指數</h2><span class="idx-time"></span></div>
+        <div class="idx-price"><span class="big">—</span><span class="chg"></span></div>
+        <svg class="spark" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <dl class="ohl"></dl>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>自選股</h2>
+        <form id="add-form" class="add">
+          <input id="add-input" list="codes" placeholder="輸入代號或名稱加入" autocomplete="off">
+          <datalist id="codes"></datalist>
+          <button type="submit">加入</button>
+        </form>
+      </div>
+      <div class="table-wrap"><table id="watch" class="quotes"></table></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>熱門成交</h2>
+        <span class="hint">前一交易日成交值前 40 名・即時報價</span>
+      </div>
+      <div class="table-wrap"><table id="hot" class="quotes"></table></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>全市場收盤</h2>
+        <div class="controls">
+          <div class="seg" id="mkt">
+            <button data-v="all" class="on">全部</button><button data-v="tse">上市</button><button data-v="otc">上櫃</button>
+          </div>
+          <div class="seg" id="sort">
+            <button data-v="up" class="on">漲幅</button><button data-v="down">跌幅</button><button data-v="val">成交值</button>
+          </div>
+          <input id="search" type="search" placeholder="搜尋代號／名稱">
+        </div>
+      </div>
+      <div class="table-wrap"><table id="all" class="quotes"></table></div>
+      <p class="hint" id="all-note"></p>
+    </section>
+  </main>
+
+  <footer>
+    資料來源：臺灣證券交易所、證券櫃檯買賣中心。由 GitHub Actions 盤中約每 5 分鐘更新，非即時，僅供參考，不構成投資建議。
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
