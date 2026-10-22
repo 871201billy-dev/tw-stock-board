@@ -92,7 +92,7 @@ function row(s, { removable = false, live = true, last = live ? esc(s.t ?? "") :
   let price = fmt(s.p, d);
   if (live && s.u && s.p >= s.u) price = `<span class="limit-up">${price}</span>`;
   else if (live && s.w && s.p <= s.w) price = `<span class="limit-down">${price}</span>`;
-  return `<tr>
+  return `<tr data-code="${esc(s.c)}" title="點擊看 K 線">
     <td class="name"><b>${esc(s.c)}</b><small>${esc(s.n)}</small>${s.m === "otc" ? '<span class="tag">櫃</span>' : ""}</td>
     <td class="price ${c}">${price}</td>
     <td class="${c}">${arrow(s.ch)} ${fmt(Math.abs(s.ch), d)}</td>
@@ -153,6 +153,7 @@ async function load() {
     renderIndex("#idx-tse", quotes.indices?.tse, "tse");
     renderIndex("#idx-otc", quotes.indices?.otc, "otc");
     renderWatch(); renderHot(); renderAll();
+    if (d) document.dispatchEvent(new Event("data-ready"));
     $("#updated").textContent = quotes.updated ? "資料更新 " + new Date(quotes.updated).toLocaleString("zh-TW", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
   } catch (e) {
     $("#updated").textContent = "載入失敗：" + e.message;

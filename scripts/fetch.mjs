@@ -1,56 +1,11 @@
 // 抓取台股資料並寫入 site/data/*.json（由 GitHub Actions 定時執行）
 // 用法：node scripts/fetch.mjs [前一版網站網址，用來延續盤中走勢]
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { num, getJSON, fetchDaily } from "./lib.mjs";
 
 const OUT = new URL("../site/data/", import.meta.url);
 const PREV_SITE = process.argv[2]; // e.g. https://user.github.io/tw-stock-board/
 const HOT_COUNT = 40;
-
-const num = (s) => {
-  const v = parseFloat(String(s ?? "").replace(/,/g, ""));
-  return Number.isFinite(v) ? v : null;
-};
-
-async function getJSON(url, tries = 3) {
-  for (let i = 1; ; i++) {
-    try {
-      const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 tw-stock-board" } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return JSON.parse((await res.text()).trim());
-    } catch (e) {
-      if (i >= tries) throw new Error(`${url}: ${e.message}`);
-      await new Promise((r) => setTimeout(r, 1500 * i));
-    }
-  }
-}
-
-// ---- 每日收盤行情（上市 + 上櫃）----
-async function fetchDaily() {
-  const [tse, otc] = await Promise.allSettled([
-    getJSON("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"),
-    getJSON("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes"),
-  ]);
-  const rows = [];
-  if (tse.status === "fulfilled") {
-    for (const r of tse.value) {
-      const p = num(r.ClosingPrice);
-      if (p == null) continue;
-      rows.push({ c: r.Code, n: r.Name, m: "tse", d: r.Date, p, ch: num(r.Change) ?? 0,
-        o: num(r.OpeningPrice), h: num(r.HighestPrice), l: num(r.LowestPrice),
-        v: Math.round((num(r.TradeVolume) ?? 0) / 1000), val: num(r.TradeValue) ?? 0 });
-    }
-  } else console.warn("TWSE daily failed:", tse.reason.message);
-  if (otc.status === "fulfilled") {
-    for (const r of otc.value) {
-      const p = num(r.Close);
-      if (p == null) continue;
-      rows.push({ c: r.SecuritiesCompanyCode, n: r.CompanyName, m: "otc", d: r.Date, p, ch: num(r.Change) ?? 0,
-        o: num(r.Open), h: num(r.High), l: num(r.Low),
-        v: Math.round((num(r.TradingShares) ?? 0) / 1000), val: num(r.TransactionAmount) ?? 0 });
-    }
-  } else console.warn("TPEx daily failed:", otc.reason.message);
-  return rows;
-}
 
 // ---- 即時行情（證交所基本市況報導 mis）----
 function parseMis(q) {

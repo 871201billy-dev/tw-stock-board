@@ -51,7 +51,7 @@
     <section class="panel">
       <div class="panel-head">
         <h2>熱門成交</h2>
-        <span class="hint">前一交易日成交值前 40 名・即時報價</span>
+        <span class="hint">前一交易日成交值前 40 名・點擊任一檔看 K 線</span>
       </div>
       <div class="table-wrap"><table id="hot" class="quotes"></table></div>
     </section>
@@ -78,6 +78,25 @@
     資料來源：臺灣證券交易所、證券櫃檯買賣中心。由 GitHub Actions 盤中約每 5 分鐘更新，非即時，僅供參考，不構成投資建議。
   </footer>
 
+  <dialog id="kline">
+    <div class="k-head">
+      <div>
+        <h2 id="k-title"></h2>
+        <div id="k-quote" class="k-quote"></div>
+      </div>
+      <button id="k-close" type="button" title="關閉">✕</button>
+    </div>
+    <div class="k-bar">
+      <div class="seg" id="k-range">
+        <button data-n="22">1月</button><button data-n="66" class="on">3月</button><button data-n="132">6月</button><button data-n="9999">全部</button>
+      </div>
+    </div>
+    <div id="k-legend" class="k-legend"></div>
+    <div id="k-chart" class="k-chart"></div>
+    <p id="k-note" class="hint"></p>
+  </dialog>
+
   <script src="app.js"></script>
+  <script src="kline.js"></script>
 </body>
 </html>

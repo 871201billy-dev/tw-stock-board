@@ -108,6 +108,28 @@ table.quotes { width: 100%; border-collapse: collapse; font-size: 14px; }
 .limit-up { background: var(--up); color: #fff; border-radius: 4px; padding: 0 4px; }
 .limit-down { background: var(--down); color: #fff; border-radius: 4px; padding: 0 4px; }
 
+.quotes tbody tr[data-code] { cursor: pointer; }
+
+/* K 線視窗 */
+dialog#kline {
+  width: min(1000px, calc(100vw - 32px)); max-height: calc(100vh - 32px);
+  padding: 0; border: 1px solid var(--line); border-radius: 14px;
+  background: var(--card); color: var(--text);
+}
+dialog#kline::backdrop { background: rgba(0, 0, 0, .5); }
+.k-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 14px 16px 6px; }
+.k-head h2 { font-size: 18px; }
+.k-head h2 small { color: var(--muted); font-weight: 500; margin-left: 6px; }
+.k-head .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; margin-left: 6px; vertical-align: middle; }
+.k-quote { display: flex; gap: 10px; align-items: baseline; font-weight: 600; }
+.k-price { font-size: 24px; }
+#k-close { border: 1px solid var(--line); background: var(--bg); border-radius: 8px; width: 32px; height: 32px; cursor: pointer; flex: none; }
+.k-bar { padding: 4px 16px; }
+.k-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 4px 16px; font-size: 12px; min-height: 26px; color: var(--muted); }
+.k-legend b { font-weight: 600; }
+.k-chart { height: min(460px, 55vh); margin: 0 8px; }
+#kline .hint { padding: 8px 16px 14px; }
+
 .up { color: var(--up); }
 .down { color: var(--down); }
 .flat { color: var(--flat); }

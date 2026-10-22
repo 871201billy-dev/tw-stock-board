@@ -1,0 +1,40 @@
+name: 更新 K 線資料
+
+on:
+  schedule:
+    - cron: "30 7 * * 1-5"  # 台北時間 15:30，收盤資料公布後
+  push:
+    branches: [main]
+    paths: [watchlist.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: kline
+  cancel-in-progress: false
+
+jobs:
+  kline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: 抓取 K 線
+        run: node scripts/kline.mjs
+      - name: Commit 並重新部署
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git add site/kline
+          if git diff --cached --quiet; then echo "沒有變更"; exit 0; fi
+          git -c user.name="github-actions[bot]" -c user.email="41898183+github-actions[bot]@users.noreply.github.com" \
+            commit -m "更新 K 線資料 $(TZ=Asia/Taipei date +%F)"
+          git pull --rebase
+          git push
+          # 用 GITHUB_TOKEN push 不會觸發其他 workflow，所以手動觸發部署
+          gh workflow run update.yml --ref main
