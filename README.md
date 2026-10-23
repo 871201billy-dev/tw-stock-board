@@ -17,6 +17,14 @@
 
 網頁每 60 秒會重新讀一次資料。
 
+### 即時報價（每 5 秒）
+
+`worker/` 是一個 Cloudflare Worker，負責轉發證交所 mis 的即時報價並加上 CORS。網頁在盤中（08:30–13:40）每 5 秒向它要一次資料；失敗時會自動改用上面 GitHub Actions 的資料。
+
+- 部署：`cd worker && npx wrangler login && npx wrangler deploy`
+- 網址設定在 `site/app.js` 的 `LIVE_API`
+- 從 Workers 連證交所約一半的請求會失敗（520），Worker 會自動重試，並保留最近一次成功的資料當備援
+
 ## 注意事項
 
 - GitHub 排程經常延遲 5–15 分鐘，所以報價**不是即時的**

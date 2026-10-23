@@ -1,10 +1,13 @@
 "use strict";
 
 const REFRESH_MS = 60_000;
+const LIVE_API = "https://tw-stock-proxy.evening-orbit.workers.dev"; // Cloudflare Worker 網址（worker/），空字串表示只用 GitHub Actions 的資料
+const LIVE_MS = 5_000;
 const LS_KEY = "tw-stock-board:watch";
 const $ = (s) => document.querySelector(s);
 
 let quotes = null, daily = null, intra = null;
+let liveOK = false, livePts = [];
 let dailyMap = new Map();
 let mktFilter = "all", sortKey = "up";
 
@@ -148,21 +151,89 @@ async function load() {
   $("#refresh").classList.add("spin");
   try {
     const [q, d, i] = await Promise.all([getJSON("quotes.json"), daily ? Promise.resolve(null) : getJSON("daily.json"), getJSON("intraday.json").catch(() => null)]);
-    quotes = q; intra = i;
+    // 即時模式運作中時，保留較新的即時報價，只更新清單
+    quotes = liveOK && quotes ? { ...q, indices: quotes.indices, stocks: { ...q.stocks, ...quotes.stocks } } : q;
+    intra = mergeIntra(i);
     if (d) { daily = d; dailyMap = new Map(d.rows.map((r) => [r.c, r])); fillDatalist(); }
     renderIndex("#idx-tse", quotes.indices?.tse, "tse");
     renderIndex("#idx-otc", quotes.indices?.otc, "otc");
     renderWatch(); renderHot(); renderAll();
     if (d) document.dispatchEvent(new Event("data-ready"));
-    $("#updated").textContent = quotes.updated ? "資料更新 " + new Date(quotes.updated).toLocaleString("zh-TW", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+    renderUpdated();
   } catch (e) {
     $("#updated").textContent = "載入失敗：" + e.message;
   } finally {
     $("#refresh").classList.remove("spin");
-    const [label, live] = marketStatus();
-    $("#status").textContent = label;
-    $("#status").classList.toggle("live", live);
+    showStatus();
   }
+}
+
+function showStatus() {
+  const [label, open] = marketStatus();
+  $("#status").textContent = open && liveOK ? "盤中・即時" : open && LIVE_API ? "盤中・延遲" : label;
+  $("#status").classList.toggle("live", open);
+}
+
+const renderUpdated = () => {
+  $("#updated").textContent = quotes.updated ? "資料更新 " + new Date(quotes.updated).toLocaleString("zh-TW", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: liveOK ? "2-digit" : undefined }) : "—";
+};
+
+// ---------- 即時報價（透過 Cloudflare Worker 轉發證交所 mis）----------
+function parseMis(q) {
+  const n = (s) => { const v = parseFloat(s); return Number.isFinite(v) ? v : null; };
+  const y = n(q.y);
+  let z = n(q.z) ?? n(q.pz) ?? n(String(q.b ?? "").split("_")[0]);
+  if (z === 0) z = null;
+  const levels = (s) => String(s ?? "").split("_").filter(Boolean).map(n);
+  return {
+    c: q.c, n: q.n, m: q.ex, p: z ?? y, y,
+    ch: z != null && y != null ? +(z - y).toFixed(2) : 0,
+    o: n(q.o), h: n(q.h), l: n(q.l), v: n(q.v), u: n(q.u), w: n(q.w),
+    a: levels(q.a), b: levels(q.b), t: q.t, d: q.d,
+  };
+}
+
+// 盤中走勢：GitHub Actions 累積的點 + 瀏覽器即時抓到的點
+function mergeIntra(server) {
+  let base = server?.pts ? server : intra ?? { pts: [] };
+  const liveD = livePts.at(-1)?.d;
+  if (liveD && !(base.d >= liveD)) base = { d: liveD, pts: [] }; // 新的交易日以即時資料為準
+  const pts = new Map(base.pts.map((p) => [p.t, p]));
+  for (const p of livePts) if (p.d === base.d) pts.set(p.t, p);
+  return { ...base, pts: [...pts.values()].sort((a, b) => a.t.localeCompare(b.t)) };
+}
+
+function liveWindow() {
+  const now = new Date(Date.now() + 8 * 3600e3);
+  const day = now.getUTCDay(), m = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return day > 0 && day < 6 && m >= 8 * 60 + 30 && m <= 13 * 60 + 40;
+}
+
+async function pollLive() {
+  if (!LIVE_API || !quotes || !daily || document.hidden || !liveWindow()) return;
+  const codes = [...new Set([...watchList(), ...(quotes.hot ?? [])])].filter((c) => dailyMap.has(c));
+  const chans = ["tse_t00.tw", "otc_o00.tw", ...codes.map((c) => `${dailyMap.get(c).m}_${c}.tw`)];
+  try {
+    const got = {};
+    for (let i = 0; i < chans.length; i += 100) {
+      const res = await fetch(`${LIVE_API}?ex_ch=${encodeURIComponent(chans.slice(i, i + 100).join("|"))}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      for (const q of (await res.json()).msgArray ?? []) got[q.c] = parseMis(q);
+    }
+    if (!got.t00) throw new Error("no index");
+    quotes = { ...quotes, updated: new Date().toISOString(), indices: { tse: got.t00, otc: got.o00 ?? quotes.indices?.otc }, stocks: { ...quotes.stocks, ...got } };
+    if (got.t00.t && livePts.at(-1)?.t !== got.t00.t) livePts.push({ d: got.t00.d, t: got.t00.t, tse: got.t00.p, otc: got.o00?.p ?? null });
+    intra = mergeIntra(intra);
+    liveOK = true;
+    renderIndex("#idx-tse", quotes.indices.tse, "tse");
+    renderIndex("#idx-otc", quotes.indices.otc, "otc");
+    renderWatch(); renderHot();
+    renderUpdated();
+  } catch (e) {
+    liveOK = false;
+    console.warn("即時報價失敗，改用 GitHub Actions 資料：", e.message);
+  }
+  showStatus();
 }
 
 // ---------- 事件 ----------
@@ -200,6 +271,7 @@ for (const [id, set] of [["#mkt", (v) => (mktFilter = v)], ["#sort", (v) => (sor
 }
 $("#search").addEventListener("input", renderAll);
 
-load();
+load().then(pollLive);
 setInterval(() => { if (!document.hidden) load(); }, REFRESH_MS);
-document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+setInterval(pollLive, LIVE_MS);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) load().then(pollLive); });
